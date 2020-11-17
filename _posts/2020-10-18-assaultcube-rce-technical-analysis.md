@@ -737,3 +737,10 @@ Thanks for reading.
 
 The vulnerability was [introduced](https://github.com/assaultcube/AC/commit/9ea5997f535da18a94a5c46bc1e88708f50b95e9) on my birthday.
 Guess it was meant to be.
+
+## References & Mentions
+- [Google](https://www.google.com/search?q=assaultcube+rce)
+- [Twitter](https://twitter.com/search?q=url%3Ae12dedf680e5&source=post_stats_page-------------------------------------)
+- [Facebook](https://www.facebook.com/search/top/?q=AssaultCube%20RCE%3A%20Technical%20Analysis&source=post_stats_page-------------------------------------)
+- [Day0 Podcast](https://podcasts.google.com/feed/aHR0cHM6Ly9hbmNob3IuZm0vcy9hMTIxYTI0L3BvZGNhc3QvcnNz/episode/OGVmNjY0ODEtNzMxNS00MTQ4LTgyZjgtOTNjYTM4M2UzNzFk?sa=X&ved=0CAIQuIEEahcKEwjwtIXHioDtAhUAAAAAHQAAAAAQRw) & [GreyHats Podcast](https://podcasts.google.com/feed/aHR0cHM6Ly9hbmNob3IuZm0vcy8zN2ZiM2U3MC9wb2RjYXN0L3Jzcw/episode/NDVlMmQ1NzMtZjRlOS00N2Y2LTg1YzctZjNmYTQwNDBhNjhk?sa=X&ved=0CAIQuIEEahcKEwjwtIXHioDtAhUAAAAAHQAAAAAQRw)
+- [Linkedin](https://www.linkedin.com/search/results/content/?keywords=AssaultCube%20RCE%3A%20Technical%20Analysis&source=post_stats_page-------------------------------------)
