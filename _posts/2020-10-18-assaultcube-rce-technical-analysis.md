@@ -5,6 +5,9 @@ date:   2020-10-18
 categories: exploitation
 ---
 
+(Also available on [Medium](https://medium.com/@elongl/assaultcube-rce-technical-analysis-e12dedf680e5))
+
+
 So I've been doing quite a lot of Wargames & CTFs and I was looking to research a "real” production application.
 
 I decided to go with a game called **AssaultCube**.
