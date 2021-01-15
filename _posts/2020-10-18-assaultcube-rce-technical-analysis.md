@@ -113,7 +113,7 @@ I [patched](https://github.com/elongl/AC/commit/dc7b06208542de782e3703c3f8a9a0b8
 
 And what do you know…
 
-<center><iframe width="560" height="315" src="https://www.youtube.com/embed/pQDS4FrSiNA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></center>
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/pQDS4FrSiNA" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></center>
 
 The server has crashed and all clients were immediately disconnected.  
 At this point I can just halt and ruin the game for other players.  
@@ -188,7 +188,7 @@ $14 = 0x52
 
 I supplied `0x52` as the weapon ID and hoped that a big integer would be written into `alen` and luckily enough...
 
-<center><iframe width="560" height="315" src="https://www.youtube.com/embed/U9_75yxk2AY" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/U9_75yxk2AY" frameborder="0" allowfullscreen></iframe></center>
 
 Should probably mention that it took a while before I realized that I could do that, the bug indeed seemed useful, but I just couldn't find a good use to it at first to the point that I just sat it aside and kept on looking for other bugs while keeping in mind that I have this *card* to activate at need.
 Glad I found this neat trick eventually.
@@ -226,7 +226,7 @@ This is useful in order to see what is the following chunk of memory and whether
 
 I patched the client to send `aaaabbbb...AAAABBBB...` so that it'll be easy to tell how our buffer is being "consumed” by the code.
 
-<center><iframe width="560" height="315" src="https://www.youtube.com/embed/lAu452kuy_0" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/lAu452kuy_0" frameborder="0" allowfullscreen></iframe></center>
 
 Wow.
 
@@ -656,7 +656,7 @@ How cool is that?!
 
 Let's take a look.
 
-<center><iframe width="560" height="315" src="https://www.youtube.com/embed/ncjvUTq5dco" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/ncjvUTq5dco" frameborder="0" allowfullscreen></iframe></center>
 
 ### Steps
 
