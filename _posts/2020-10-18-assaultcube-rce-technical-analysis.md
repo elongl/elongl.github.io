@@ -717,9 +717,11 @@ This game is definitely still being played, not that you'd start playing it toda
 
 ![Server Browser (can also scroll for more)](https://cdn-images-1.medium.com/max/2600/1*ZypJYHnnMMs0jTYum_LHcw.png)*Server Browser (can also scroll for more)*
 
-From the developers' point of view, the only real vulnerability that I've exploited is that:
-
-`if (nextprimary < 0 && nextprimary >= NUMGUNS) // This should've been an OR operator, not an AND.`
+I find it fascinating that from the developers' point of view, the **only** vulnerability that I've exploited is:
+```c
+if (nextprimary < 0 && nextprimary >= NUMGUNS) // This should've been an OR operator, not an AND.
+```
+They literally got confused **once**, a single incorrect operator, and we have code execution.
 
 The rest is pure creativity.
 
