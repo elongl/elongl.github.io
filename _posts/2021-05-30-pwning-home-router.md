@@ -17,7 +17,7 @@ Immediately I wondered..._Could I hack it?_
 It worked well for me because I was just looking for a new project to pick up on,
 and I had no prior experience in tinkering with such devices and I thought it could be an interesting challenge.
 
-# Hacking Time
+# Getting Started
 I connected the router to my computer and right away jumped onto the research.
 I started off with a good ol' port scan in order to get a good grasp of the router's interfaces and my potential attack vectors.
 
@@ -42,6 +42,22 @@ and shortly afterwards I'm introduced to the following control and management pa
 ![Web Interface]
 <p style="text-align: center; font-style: italic"><small>The router's web interface.</small></p>
 
+# Hacking Time
+
+Initially, I searched for potential inputs from the client when I came across the Diagnostics page.
+![Diagnostics Page]
+
+I thought it could be a good place to apply the oldest blackbox technique in the book - _Shell Injection_.
+Unfortunately, client-side validation was applied.
+<center><video style="width: 480px; height: 495px; margin: 1rem" autoplay loop><source src="https://i.imgur.com/iM8isa8.mp4"></video></center>
+
+In order to overcome it, I intercepted the request using a proxy.
+<center><video style="width: 750px; height: 500px; margin: 1rem" autoplay loop><source src="https://i.imgur.com/36pK23Z.mp4"></video></center>
+
+Sadly, it seemed to have no effect at all on the ping request.  
+I also attempted the same thing on the Traceroute Test but interface without any luck.
+
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
+[Diagnostics Page]: https://i.imgur.com/QctdaYi.png
