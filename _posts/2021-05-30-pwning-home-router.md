@@ -98,9 +98,64 @@ a theme with which I was not familiar.
 Generally, the sole job of the web application is to pass parameters to the `httpd` which actually does the heavy lifting.
 At this point I realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
 
+# Analyzing HTTP Daemon
+I opened up Ghidra and filtered the symbol tree to "ping" and found a function called `ping_server`.
+![Ghidra ping_server]
+
+Worth mentioning that none of the binaries that were present within the firmware had any debug symbols, and that they were completely stripped.
+
+However, with great help of Ghidra's decompiler, although a bit inaccurate, I concluded that what the function does is 
+eventually call a function named `_eval` like so.
+
+```c
+_eval("ping -c {ping_times} {ping_ip}")
+```
+`ping_times` and `ping_ip` being the arguments that are supplied from the web page which can be seen above.
+
+Naturally, I went on to see how `_eval` handles this input,
+accordingly I had to figure out where the symbol is located since it's an imported symbol that does not reside within `httpd` itself.
+```sh
+router-fs$ readelf -d usr/sbin/httpd
+
+Dynamic section at offset 0x120 contains 27 entries:
+  Tag        Type                         Name/Value
+ 0x00000001 (NEEDED)                     Shared library: [libnvram.so]
+ 0x00000001 (NEEDED)                     Shared library: [libshared.so]
+ 0x00000001 (NEEDED)                     Shared library: [libcrypto.so]
+ 0x00000001 (NEEDED)                     Shared library: [libssl.so]
+ 0x00000001 (NEEDED)                     Shared library: [libexpat.so]
+ 0x00000001 (NEEDED)                     Shared library: [libc.so.0]
+ ...
+
+router-fs$ nm -gD usr/lib/libnvram.so | grep eval
+router-fs$ nm -gD usr/lib/libshared.so | grep eval
+0000bd28 T _eval
+```
+`_eval` is located within `libshared.so`.
+
+The `_eval` [function itself](https://gist.github.com/elongl/cf5badc6d78721cacbe87dfe59afeef5) is relatively long,
+but the important part is that it forks and then uses `execvp` as opposed to `system`.
+Therefore, a shell injection is not possible because the constant `"ping"` is the program that will be launched _regardless_ of my other arguments.
+
+```c
+void _eval(char **param_1,char *param_2,uint param_3,__pid_t *param_4)
+{
+    ...
+    __pid = fork();
+    ...
+    setenv("PATH","/sbin:/bin:/usr/sbin:/usr/bin",1);
+    alarm(param_3);
+    execvp(*param_1,param_1);
+    perror(*param_1);
+}
+```
+I tried to see if I could escalate my control via `ping` or `traceroute` with certain arguments but I didn't find anything interesting.
+I also searched for other references within `httpd` to `_eval` in the hope that I'll find a place in which the first argument, the program, is user-controlled.  
+As expected, I couldn't find such a scenario.
 
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
 [Diagnostics Page]: https://i.imgur.com/QctdaYi.png
 [the firmware]: https://www.linksys.com/us/support-article?articleNum=148648
+[Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
