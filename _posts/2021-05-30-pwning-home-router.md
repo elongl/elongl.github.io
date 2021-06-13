@@ -153,9 +153,44 @@ I tried to see if I could escalate my control via `ping` or `traceroute` with ce
 I also searched for other references within `httpd` to `_eval` in the hope that I'll find a place in which the first argument, the program, is user-controlled.  
 As expected, I couldn't find such a scenario.
 
+# Back To Basics
+Well, why not at least _try_ to think simpler than that?  
+Let's begin by searching for references for `system` within `httpd`.
+![system xrefs]
+There weren't too many in the first place, and all of them were actually safe since an attacker couldn't meddle in between.  
+
+With the exception of a [single](https://gist.github.com/elongl/e9974c91efcec1a0dc04fc9b639b861d) spot 😮
+
+```c
+void do_upgrade_post(void *param_1,BIO *param_2,int param_3)
+{
+  ...
+  system("cp /www/Success_u_s.asp /tmp/.");
+  system("cp /www/Fail_u_s.asp /tmp/.");
+  memset(acStack88,0,0x40);
+  puVar1 = (undefined *)nvram_get("ui_language");
+  uVar7 = 0;
+  if (puVar1 == (undefined *)0x0) {
+    puVar1 = &DAT_0047a2b8;
+  }
+  snprintf(acStack88,0x40,"cp /www/%s_lang_pack/captmp.js /tmp/.",puVar1);
+  system(acStack88);
+  iVar2 = memcmp(param_1,"restore.cgi",0xb);
+  ...
+}
+```
+You can see that what happens is that a variable called `puVar1` is formatted into a `cp` command using `snprintf`,
+and then the command is invoked with `system`.
+
+The variable `puVar1` is loaded from `nvram_get`. NVRAM stands for _Non-Volatile RAM_ which is data that "survives" a reboot,
+in this case, the language of the user interface since we don't want it to change on every restart of the router.
+
+Luckily for us, we can control this value!
+
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
 [Diagnostics Page]: https://i.imgur.com/QctdaYi.png
 [the firmware]: https://www.linksys.com/us/support-article?articleNum=148648
 [Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
+[system xrefs]: https://i.imgur.com/usejiO7.png
