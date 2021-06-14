@@ -96,7 +96,7 @@ Apparently, it's a common pattern in "small devices" to combine the web server w
 a theme with which I was not familiar.
 
 Generally, the sole job of the web application is to pass parameters to the `httpd` which actually does the heavy lifting.
-At this point I realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
+I now realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
 
 # Analyzing HTTP Daemon
 I opened up Ghidra and filtered the symbol tree to "ping" and found a function called `ping_server`.
@@ -182,10 +182,52 @@ void do_upgrade_post(void *param_1,BIO *param_2,int param_3)
 You can see that what happens is that a variable called `puVar1` is formatted into a `cp` command using `snprintf`,
 and then the command is invoked with `system`.
 
-The variable `puVar1` is loaded from `nvram_get`. NVRAM stands for _Non-Volatile RAM_ which is data that "survives" a reboot,
+The variable `puVar1` is loaded from `nvram_get("ui_language")`. NVRAM stands for _Non-Volatile RAM_ which is data that "survives" a reboot,
 in this case, the language of the user interface since we don't want it to change on every restart of the router.
 
 Luckily for us, we can control this value!
+
+![change ui_language]
+
+I looked for the place from which you can change the language on the web page,
+and I inspected the request that was being sent and I noted that in fact the `ui_language` parameter is being changed,
+in my case from `"en"` to `"fr"`.
+
+Seems like all we have to do is change `ui_language` to `;{malicious command};` in order to get code execution.
+Let's give it a shot with `;reboot;`.
+
+<center><video style="width: 750px; height: 500px; margin: 1rem" autoplay loop><source src="https://i.imgur.com/RbcqA2t.mp4"></video></center>
+
+Well, while corrupted, a web page returned and therefore we can deduce that the device and the web server are still functional,
+and didn't experience any reboot.
+
+At first I thought that maybe I have insufficient permissions to reboot the device but I highly doubted it given it's a router,
+or that `reboot` is not in the `$PATH`,
+so I tried pinging myself with absolute path in order to confront both of those issues `/bin/ping 192.169.1.100`.
+Still, no luck.
+
+Currently, I revisited the vulnerability with a deeper inspection.  
+If you paid close attention you noticed that the vulnerable function's name is `do_upgrade_post`.  
+This must mean that I have to **issue an upgrade** in order to trigger the bug!
+
+A few things I had to do beforehand:
+1. Because changing the `ui_language` to an invalid option corrupts the web page,
+I opened up the firmware update page in advance and I'm only switching tabs after changing the language.
+
+2. I also needed to encode the command so that it could be properly used within a URL
+```py
+urllib.parse.quote(';ping -c 4 192.169.1.100;')
+-> '%3Bping%20-c%204%20192.169.1.100%3B'
+```
+
+3. Create an empty file named `*.bin` in order to pass the firmware filename client-side validation.
+
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/-N307W7cd9Y" frameborder="0" allowfullscreen></iframe></center>
+
+Yes! We got code execution.
+
+I can only assume that the developers didn't think this was susceptible to shell injection since the way
+ in which you change a language is via a dropdown and you can't provide free-text on the interface.
 
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
@@ -194,3 +236,4 @@ Luckily for us, we can control this value!
 [the firmware]: https://www.linksys.com/us/support-article?articleNum=148648
 [Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
 [system xrefs]: https://i.imgur.com/usejiO7.png
+[change ui_language]: https://i.imgur.com/xrNitIn.png
