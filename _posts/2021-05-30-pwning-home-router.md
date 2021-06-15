@@ -89,8 +89,11 @@ Factory_Defaults.asp  Firewall.asp          Ping.asp              SES_Status.asp
 Basically the web application is a bunch of `.asp` pages served through the `httpd` that is running.  
 
 First thing I did was inspect `Ping.asp` in order to see how the ping invocation is done since I wanted to know what failed my shell injection.
-It took me a few minutes to realize that the web application isn't the one that is doing the ping itself as I imagined it would with something like `Process.Start("ping ...");`,
-but rather what actually happens is that it passes on the request to the `httpd` which handles it on its own.
+It took me a few minutes to realize that the web application isn't the one that is doing the ping itself as I imagined it would with something like
+```cs
+Process.Start("ping ...");
+```
+But rather what actually happens is that it passes on the request to the `httpd` which handles it.
 
 ```sh
 router-fs$ grep -r apply.cgi
@@ -103,17 +106,14 @@ www/Ping.asp:<FORM name=ping method=<% get_http_method(); %> action=apply.cgi>
 ...
 Binary file usr/sbin/httpd matches
 ```
-When searching for `/apply.cgi` which is where all the HTTP requests are being sent to,
+Consequently, when searching for `/apply.cgi` which is where all the HTTP requests are being sent to,
 the only matches are from the web application with `<FORM>` elements and the `httpd`.
-
-Apparently, it's a common pattern in "small devices" to combine the web server with the application and business logic,
-a theme with which I was not exactly familiar.
 
 Generally, the sole job of the web application is to pass parameters to the `httpd` which actually does the heavy lifting.
 I now realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
 
 # Analyzing HTTP Daemon
-I opened up Ghidra and filtered the symbol tree to "ping" and found a function called `ping_server`.
+I opened up Ghidra and filtered the symbol tree to "ping" and found a function called [`ping_server`].
 ![Ghidra ping_server]
 
 Worth mentioning that none of the binaries that were present within the firmware had any debug symbols, and that they were completely stripped.
@@ -126,8 +126,8 @@ _eval("ping -c {ping_times} {ping_ip}")
 ```
 `ping_times` and `ping_ip` being the arguments that are supplied from the web page which can be seen above.
 
-Naturally, I went on to see how `_eval` handles this input,
-accordingly I had to figure out where the symbol is located since it's an imported symbol that does not reside within `httpd` itself.
+Naturally, I went on to see how `_eval` handles this input.
+Accordingly, I had to figure out where the symbol is located since it's an imported symbol that does not reside within `httpd` itself.
 ```sh
 router-fs$ readelf -d usr/sbin/httpd
 
@@ -197,7 +197,7 @@ You can see that what happens is that a variable called `puVar1` is formatted in
 and then the command is invoked with `system`.
 
 The variable `puVar1` is loaded from `nvram_get("ui_language")`. NVRAM stands for _Non-Volatile RAM_ which is data that "survives" a reboot,
-in this case, the language of the user interface since we don't want it to change on every restart of the router.
+in this case, the language of the user interface since we don't want it to change whenever the router restarts.
 
 Luckily for us, we can control this value!
 
@@ -252,7 +252,7 @@ Originally, I thought of uploading the file with a command like
 ```sh
 echo {revshell_bytes} > revshell
 ```
-However, I then recalled that I couldn't do so due to the size limitation on `snprintf`.
+Though, I then recalled that I couldn't do so due to the size limitation on `snprintf`.
 ```c
 // Copies up to 0x40 bytes.
 snprintf(acStack88,0x40,"cp /www/%s_lang_pack/captmp.js /tmp/.",puVar1);
@@ -263,12 +263,12 @@ In : 0x40 - len('cp /www/')
 Out: 56 (0x38)
 ```
 I'm limited to 56 characters, two of which are the `;` at the beginning and at the end, so essentially 54 characters.
-Uploading it by chunks with `echo {chunk} >> revshell` would take a very long time and I didn't want to go that path.
+Uploading it by chunks with `echo {chunk} >> revshell` would take a very long time and I didn't want to go down that path.
 
 At this point in time, I realized that `wget` is present on the device!  
 I compiled a [reverse shell] and set up an HTTP server so that I can pull it to the router.
 
-I automated the process of changing the `ui_language` to a command in conjunction with issuing a firmware update in order to execute the shell command.
+I automated the process of changing the `ui_language` to a command in conjunction with issuing a firmware update in order to execute a shell command.
 If everything works correctly, the firmware update request should block since it's now executing the reverse shell (given that it doesn't fork).
 
 Steps:
@@ -355,7 +355,7 @@ and that compiling a program to run on the device turned out to be a bigger chal
 
 When I approached to compile `revshell.c`,
 I thought that all I'd have to do is install `gcc` for MIPS so I just did `mips-linux-gnu-gcc -static revshell.c -o revshell` but boy was I wrong.
-I tried passing various arguments to the compiler, and different compilers, but none of which seemed to run successfully on the router.
+I tried passing various arguments to the compiler, and using different compilers, but none of which seemed to run successfully on the router.
 I also tried just assemblying native MIPS code with `as`.
 
 Eventually I came to know that the vendor publishes a [toolchain] which contains a bunch of tools that are relevant for the device,
@@ -381,6 +381,7 @@ Thank you for reading.
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
 [Diagnostics Page]: https://i.imgur.com/QctdaYi.png
 [the firmware]: https://www.linksys.com/us/support-article?articleNum=148648
+[`ping_server`]: https://gist.github.com/elongl/8b42ab42fe82c4a456f26a571dd5276d
 [Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
 [system xrefs]: https://i.imgur.com/usejiO7.png
 [change ui_language]: https://i.imgur.com/xrNitIn.png
