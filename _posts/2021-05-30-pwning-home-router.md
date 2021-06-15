@@ -113,10 +113,10 @@ Generally, the sole job of the web application is to pass parameters to the `htt
 I now realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
 
 # Analyzing HTTP Daemon
-I opened up Ghidra and filtered the symbol tree to "ping" and found a function called [`ping_server`].
+I opened up Ghidra, filtered the symbol tree to "ping" and found a function called [`ping_server`].
 ![Ghidra ping_server]
 
-Worth mentioning that none of the binaries that were present within the firmware had any debug symbols, and that they were completely stripped.
+Worth mentioning that none of the binaries that were present within the firmware had any debug symbols, and that they were stripped.
 
 However, with great help of Ghidra's decompiler, although a bit inaccurate, I concluded that what the function does is 
 eventually call a function named `_eval` like so.
@@ -164,7 +164,7 @@ void _eval(char **param_1,char *param_2,uint param_3,__pid_t *param_4)
 }
 ```
 I tried to see if I could escalate my control via `ping` or `traceroute` with certain arguments but I didn't find anything interesting.
-I also searched for other references within `httpd` to `_eval` in the hope that I'll find a place in which the first argument, the program, is user-controlled.  
+I also searched for other references within `httpd` to `_eval` in the hope that I'd find a place in which the first argument, the program, is user-controlled.  
 As expected, I couldn't find such a scenario.
 
 # Back To Basics
@@ -356,7 +356,7 @@ and that compiling a program to run on the device turned out to be a bigger chal
 When I approached to compile `revshell.c`,
 I thought that all I'd have to do is install `gcc` for MIPS so I just did `mips-linux-gnu-gcc -static revshell.c -o revshell` but boy was I wrong.
 I tried passing various arguments to the compiler, and using different compilers, but none of which seemed to run successfully on the router.
-I also tried just assemblying native MIPS code with `as`.
+I also tried just assembling native MIPS code with `as`.
 
 Eventually I came to know that the vendor publishes a [toolchain] which contains a bunch of tools that are relevant for the device,
 amongst them is the compiler that is used to build the programs for the target.
