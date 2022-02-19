@@ -1,12 +1,11 @@
 ---
 layout: post
-title:  "AssaultCube RCE: Technical Analysis"
-date:   2020-10-18
+title: 'AssaultCube RCE: Technical Analysis'
+date: 2020-10-18
 categories: exploitation
 ---
 
 (Also available on [Medium](https://medium.com/@elongl/assaultcube-rce-technical-analysis-e12dedf680e5))
-
 
 So I've been doing quite a lot of Wargames & CTFs and I was looking to research a "real” production application.
 
@@ -17,17 +16,19 @@ The game is open-source and is still very active with quite a lot of players and
 ![(Cube Engine)](https://cdn-images-1.medium.com/max/2400/0*Ocxqa-cjkiRh9LJ9.png)
 
 ## Defining Goals
+
 The goal was clear and straightforward, achieving **Remote Code Execution Client → Server**.
 
-There's also the possibilities of client → client, or server → client, but they both *tend* to be easier as the client is usually written in a more trustful manner.
+There's also the possibilities of client → client, or server → client, but they both _tend_ to be easier as the client is usually written in a more trustful manner.
 Escalating to admin, crashing the server, or writing some hacks (which [I did](https://github.com/elongl/assaultcube-aimbot-external) by the way) were **not** what I was looking for.
 
 ## Starting Out
+
 So I opened up the game's code and started to get familiar with the codebase.
 Right from the beginning I was looking for the code that takes input from the client and looked for ways to meddle with it, essentially providing unexpected data to the server.
 Pretty quickly I came across the [process](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L2638) function at `server.cpp`.
 
-This is the function that, according to the developers, does *"server-side processing of updates”*.  
+This is the function that, according to the developers, does _"server-side processing of updates”_.  
 Looks like a good place to start.
 
 So I started going over the various updates that can be sent from the client, for instance, sending a text message or the player's position on the map. I quickly noticed that reading data from the client is done using functions like `getstring` and `getint`, etc.
@@ -39,11 +40,11 @@ case SV_TEXT:
             ...
             getstring(text, p); // Read input.
             filtertext(text, text); // Filter printable characters.
-            trimtrailingwhitespace(text);       
+            trimtrailingwhitespace(text);
 ...
 ```
 
-According to my initial instincts, I started looking for simple "dumb” overflows with strings but they've wrapped it safely and I couldn't find any of those (that would've been too easy). So I just kept reading the source and *recursively* looking into where the data I'm providing is being processed.
+According to my initial instincts, I started looking for simple "dumb” overflows with strings but they've wrapped it safely and I couldn't find any of those (that would've been too easy). So I just kept reading the source and _recursively_ looking into where the data I'm providing is being processed.
 
 Then…
 I came across [this](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L2988).
@@ -107,7 +108,7 @@ if (!m_noprimary)
 ...
 ```
 
-The function enables me to write a *somewhat* random integer (cannot control the value of the assignment) into memory that is at a constant offset from the [clientstate](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.h#L109) struct (`mag`, `ammo` members) which is located within the much bigger [client](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.h#L226) struct.
+The function enables me to write a _somewhat_ random integer (cannot control the value of the assignment) into memory that is at a constant offset from the [clientstate](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.h#L109) struct (`mag`, `ammo` members) which is located within the much bigger [client](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.h#L226) struct.
 
 I [patched](https://github.com/elongl/AC/commit/dc7b06208542de782e3703c3f8a9a0b8be254f5e) the client's code to send an unexpected integer (non-existent weapon ID), expecting it to cause the server to crash, essentially getting a segmentation fault.
 
@@ -117,7 +118,7 @@ And what do you know…
 
 The server has crashed and all clients were immediately disconnected.  
 At this point I can just halt and ruin the game for other players.  
-*(Don't do that)*
+_(Don't do that)_
 
 By the way, oddly enough, I later noticed that there is no input sanitation at the [introduction](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L2666') of the client, so I could've also done it there.
 
@@ -144,7 +145,7 @@ I started iterating over the members of the `client` struct to look for places t
 
 ```cpp
 struct client {
-    ...    
+    ...
     clientstate state;
     vector<gameevent> events;
     vector<uchar> position, messages;
@@ -156,9 +157,9 @@ Perhaps overwriting the capacity member of the vector would introduce an overflo
 
 I opened up the `vector` definition to see how it's [built](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/tools.h#L375) and after a little reading I quickly picked up that:
 
-`ulen` — amount of elements within the vector.  
-`alen` — how many elements the vector can **currently** hold.  
-`buf` — A pointer to the buffer itself.  
+`ulen` — Used Length, amount of elements within the vector.  
+`alen` — Available Length, how many elements the vector can hold.  
+`buf` — A pointer to the buffer itself.
 
 Corrupting the `alen` of one of the vectors was tempting :)
 
@@ -190,7 +191,7 @@ I supplied `0x52` as the weapon ID and hoped that a big integer would be written
 
 <center><iframe style="width: 720px; height: 400px; margin: 0.5rem" src="https://www.youtube.com/embed/U9_75yxk2AY" frameborder="0" allowfullscreen></iframe></center>
 
-Should probably mention that it took a while before I realized that I could do that, the bug indeed seemed useful, but I just couldn't find a good use to it at first to the point that I just sat it aside and kept on looking for other bugs while keeping in mind that I have this *card* to activate at need.
+Should probably mention that it took a while before I realized that I could do that, the bug indeed seemed useful, but I just couldn't find a good use to it at first to the point that I just sat it aside and kept on looking for other bugs while keeping in mind that I have this _card_ to activate at need.
 Glad I found this neat trick eventually.
 
 As I said earlier, `messages` was the interesting vector because it's the one that I could write data to, mostly using these [macros](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L2758).
@@ -218,6 +219,7 @@ As I said earlier, `messages` was the interesting vector because it's the one th
 ```
 
 The interesting calls to these macros are at these cases of the event handler:
+
 1. [SV_TEXT](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L2844) — Queues the sent text message.
 2. [default](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L3617) — Queues any uncaught data from the client.
 
@@ -235,7 +237,7 @@ The `RAX` register is under our control and `RIP` is pointing at
 `call qword ptr [rax + 0x40]`
 
 That's very cool!
-Let's take a look at where this segfault occurs exactly.   
+Let's take a look at where this segfault occurs exactly.  
 The writedemo [function](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/server.cpp#L421).
 
 ```cpp
@@ -415,7 +417,7 @@ Hold on...Is the address of `system` completely printable?
 
 Well, easy peasy, let's just call `system` and our text message is already passed as an argument to the function, so that's it, we can run commands on the server's host, right? You guessed it, of course not.
 
-Let's take a moment to discuss how *methods* or *member functions*, are called in C++ in a very abstract way, after all, `write` is a virtual method of demorecord.
+Let's take a moment to discuss how _methods_ or _member functions_, are called in C++ in a very abstract way, after all, `write` is a virtual method of demorecord.
 
 A method is a function like any other, with the small caveat that it needs to be able to reference the object's members as well. The way that it's being done is via an implicit `this` argument.
 
@@ -459,6 +461,7 @@ I revisited the `QUEUE` macros to look for different ways to write data to the `
 But then I realized that a client can send **multiple events** at a **single process call**!
 
 So for instance, I'd be able to
+
 1. Change my name.
 2. Update my location on the map.
 3. Send a voice message.
@@ -468,7 +471,7 @@ And only **then** would process exit and all of these would be bundled into `wor
 
 I looked up all the places where `QUEUE_MSG` is being used, which is basically a macro that takes all the input read from the client up until the point its invoked, and adds it to `messages`.
 
-Interestingly, one of the places it appears is in the `default` case of the client event handler which sort of behaves like a *flush* or emptying the buffer I'd say.
+Interestingly, one of the places it appears is in the `default` case of the client event handler which sort of behaves like a _flush_ or emptying the buffer I'd say.
 
 ```cpp
 default:
@@ -525,13 +528,14 @@ So that won't fly because there will be "noise” in between.
 
 Great! Now we can write 7 (size — 1) bytes in a row to `messages`, which in practice mean that we can call **any** imported function now.
 
-![A peek into the binary's imported functions.](https://cdn-images-1.medium.com/max/2970/1*3PsOuKZfDRFeyDKxA6Ok7g.png)*A peek into the binary's imported functions.*
+![A peek into the binary's imported functions.](https://cdn-images-1.medium.com/max/2970/1*3PsOuKZfDRFeyDKxA6Ok7g.png)_A peek into the binary's imported functions._
 
 After browsing for a while, looking for function to call within the program with the second argument in control, I noticed **syslog**.
 
-From its signature, `void syslog(int priority, const char *format, ...);`    
+From its signature, `void syslog(int priority, const char *format, ...);`  
 we can see that its second argument is a format string.
 If we'd take a look at `man syslog(3)` we'd see:
+
 > The remaining arguments are a format, as in printf(3),
 
 I assume most of you are familiar with format string attack, if not, give it a read [here](http://www.cis.syr.edu/~wedu/Teaching/cis643/LectureNotes_New/Format_String.pdf) or Google it.
@@ -586,8 +590,8 @@ A -> B
 B -> ADDR <- VAL
 ```
 
-Frankly, this turned out to be easier than I thought.   
-It's important to mention that there's a certain limitation to how much padding you can do using a format string attack, so I couldn't use that for a *full* arbitrary write but I could definitely write to the executable's memory space.
+Frankly, this turned out to be easier than I thought.  
+It's important to mention that there's a certain limitation to how much padding you can do using a format string attack, so I couldn't use that for a _full_ arbitrary write but I could definitely write to the executable's memory space.
 
 ```
 pwndbg> vmmap
@@ -607,7 +611,7 @@ pwndbg> vmmap
 ```
 
 Amazing.  
-Now we have arbitrary write to the executable's memory space.   
+Now we have arbitrary write to the executable's memory space.  
 What do we write and to where?
 
 I went to the `.got.plt` section, and searched for functions that I can pass a buffer to as the first argument so that it'll be properly set for
@@ -640,7 +644,7 @@ At [spamdetect](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/serve
 
 This is the perfect fit.
 
-Using the format string attack, I [wrote](https://github.com/elongl/AC/blob/research/source/src/client.cpp#L279) (please don't mind the *very* bad code, this is not what this is about) `system@plt` into `strcmp@got` so that whenever strcmp is called, it'll actually jump to system.
+Using the format string attack, I [wrote](https://github.com/elongl/AC/blob/research/source/src/client.cpp#L279) (please don't mind the _very_ bad code, this is not what this is about) `system@plt` into `strcmp@got` so that whenever strcmp is called, it'll actually jump to system.
 
 ```py
 In [1]: p.got['strcmp']
@@ -663,7 +667,7 @@ Let's take a look.
 A. Overflow `messages` into `demorecord` and overwrite the vtable to `syslog`.  
 B. Place `strcmp@got` on the stack using the format string attack.  
 C. Write `system@plt` into the `strcmp@got` using the format string attack.  
-D. Run the command that pops a calculator by simply sending a text message.  
+D. Run the command that pops a calculator by simply sending a text message.
 
 You might be wondering why the hell am I launching another client.  
 Well, that's a legitimate question.
@@ -715,21 +719,23 @@ Let's review the exploit.
 
 This game is definitely still being played, not that you'd start playing it today, but there are still some old-schoolers around.
 
-![Server Browser (can also scroll for more)](https://cdn-images-1.medium.com/max/2600/1*ZypJYHnnMMs0jTYum_LHcw.png)*Server Browser (can also scroll for more)*
+![Server Browser (can also scroll for more)](https://cdn-images-1.medium.com/max/2600/1*ZypJYHnnMMs0jTYum_LHcw.png)_Server Browser (can also scroll for more)_
 
 I find it fascinating that from the developers' point of view, the **only** vulnerability that I've exploited is:
+
 ```c
 if (nextprimary < 0 && nextprimary >= NUMGUNS) // This should've been an OR operator, not an AND.
 ```
+
 They literally got confused **once**, a single incorrect operator, and we have code execution.
 
 The rest is pure creativity.
 
 I can only say that this has been a more teaching experience that all the CTFs I've done **combined**. They did give me a good sense of ideas on how to approach problems, but I'm glad I took a turn into that.
 
-Needless to say, there was struggle and *a lot* of research in between that I did not elaborate about that eventually wasn't utilized. The whole process wasn't as effortless as it is being presented in this article and there are a lot of smaller details that I simply hid out because they're just not interesting.
+Needless to say, there was struggle and _a lot_ of research in between that I did not elaborate about that eventually wasn't utilized. The whole process wasn't as effortless as it is being presented in this article and there are a lot of smaller details that I simply hid out because they're just not interesting.
 
-Since people have been asking, **the bug had already been fixed.**   
+Since people have been asking, **the bug had already been fixed.**  
 Both [here](https://github.com/assaultcube/AC/blob/master/source/src/server.cpp#L2783), and [here](https://github.com/assaultcube/AC/blob/master/source/src/server.cpp#L3108). Would also mention that I deleted my fork of AssaultCube according to the developer's request.
 
 If you have any questions or suggestions, make sure to hit me in any of these mediums or the comments.
@@ -744,6 +750,7 @@ The vulnerability was [introduced](https://github.com/assaultcube/AC/commit/9ea5
 Guess it was meant to be.
 
 ## References & Mentions
+
 - [Google](https://www.google.com/search?q=assaultcube+rce)
 - [Twitter](https://twitter.com/search?q=url%3Ae12dedf680e5&source=post_stats_page-------------------------------------)
 - [Facebook](https://www.facebook.com/search/top/?q=AssaultCube%20RCE%3A%20Technical%20Analysis&source=post_stats_page-------------------------------------)

