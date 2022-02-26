@@ -644,7 +644,7 @@ At [spamdetect](https://github.com/assaultcube/AC/blob/v1.2.0.2/source/src/serve
 
 This is the perfect fit.
 
-Using the format string attack, I [wrote](https://github.com/elongl/AC/blob/research/source/src/client.cpp#L279) (please don't mind the _very_ bad code, this is not what this is about) `system@plt` into `strcmp@got` so that whenever strcmp is called, it'll actually jump to system.
+Using the format string attack, I [wrote](https://github.com/elongl/AC/blob/research/source/src/client.cpp#L279) `system@plt` into `strcmp@got` so that whenever strcmp is called, it'll actually jump to system.
 
 ```py
 In [1]: p.got['strcmp']
