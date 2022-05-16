@@ -5,6 +5,8 @@ date: 2021-05-30
 categories: exploitation
 ---
 
+Hebrew version is available on [Digital Whisper](https://www.digitalwhisper.co.il/files/Zines/0x84/DW132-2-WRT54G_vuln.pdf).
+
 # Preface
 
 A couple of days ago,
