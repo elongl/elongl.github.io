@@ -5,12 +5,13 @@ permalink: /about/
 ---
 
 # Hello.
+
 My name is Elon Gliksberg, also known as _EGK_.
 
-I'm from Israel 🇮🇱, interested in Software R&D, and Security Research 🔍  
+I'm from Israel 🇮🇱, interested in Software R&D, and Security Research 🔍
 
-You can find me on [Github], [Twitter], or contact me via [Email].
+You can find me on [GitHub], [X], or contact me via [Email].
 
-[Github]: https://github.com/elongl
-[Twitter]: https://twitter.com/elongli
+[GitHub]: https://github.com/elongl
+[X]: https://twitter.com/elongli
 [Email]: mailto:elongliks@gmail.com
