@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 'AssaultCube RCE: Technical Analysis'
+title: "AssaultCube RCE: Technical Analysis"
 date: 2020-10-18
 categories: exploitation
 ---

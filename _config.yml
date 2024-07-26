@@ -19,7 +19,7 @@ description: "I like solving problems and taking on challenges."
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "https://elongl.github.io" # the base hostname & protocol for your site, e.g. http://example.com
 twitter_username: elongli
-github_username:  elongl
+github_username: elongl
 
 # Build settings
 markdown: kramdown
